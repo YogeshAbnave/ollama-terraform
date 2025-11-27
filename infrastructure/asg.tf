@@ -81,10 +81,17 @@ resource "aws_autoscaling_group" "app" {
   min_size                  = 2
   max_size                  = 10
   desired_capacity          = 2
+  force_delete              = true
+  wait_for_capacity_timeout = "10m"
 
   launch_template {
     id      = aws_launch_template.app.id
     version = "$Latest"
+  }
+  
+  lifecycle {
+    create_before_destroy = true
+    ignore_changes        = []  # Don't ignore any changes - enforce desired state
   }
 
   tag {
