@@ -36,10 +36,10 @@ fi
 # Run Open-WebUI Docker container
 echo "🌐 Setting up Open-WebUI..."
 docker run -d \
-  --network host \
   --name open-webui \
-  -p 3000:8080 \
+  -p 8080:8080 \
   -e OLLAMA_BASE_URL=http://localhost:11434 \
+  -e WEBUI_AUTH=false \
   -v open-webui:/app/backend/data \
   --add-host=host.docker.internal:host-gateway \
   --restart always \
