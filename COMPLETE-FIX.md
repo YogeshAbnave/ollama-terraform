@@ -43,7 +43,7 @@ Once instances are healthy (15-25 minutes):
 http://ollama-alb-2041931387.us-east-1.elb.amazonaws.com
 ```
 
-Note: Access on port 80 (standard HTTP), not 8080!
+✅ **Production-ready on standard port 80 - no port number needed!**
 
 ## Verification Steps
 

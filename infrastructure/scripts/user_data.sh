@@ -37,7 +37,7 @@ fi
 echo "🌐 Setting up Open-WebUI..."
 docker run -d \
   --name open-webui \
-  -p 8080:8080 \
+  -p 80:8080 \
   -e OLLAMA_BASE_URL=http://localhost:11434 \
   -e WEBUI_AUTH=false \
   -v open-webui:/app/backend/data \
@@ -74,4 +74,4 @@ else
 fi
 
 echo "🎉 Ollama and Open-WebUI setup completed!"
-echo "📍 Access Open-WebUI at: http://$(curl -s ifconfig.me):8080/"
+echo "📍 Access Open-WebUI at: http://$(curl -s ifconfig.me)/"

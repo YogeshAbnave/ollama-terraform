@@ -20,7 +20,7 @@ resource "aws_lb" "main" {
 # Target Group for Application
 resource "aws_lb_target_group" "app" {
   name     = "ollama-tg"
-  port     = var.open_webui_port
+  port     = 80
   protocol = "HTTP"
   vpc_id   = aws_vpc.main.id
 
