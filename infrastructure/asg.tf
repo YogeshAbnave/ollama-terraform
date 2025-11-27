@@ -77,7 +77,7 @@ resource "aws_autoscaling_group" "app" {
   vpc_zone_identifier       = [aws_subnet.public_1.id, aws_subnet.public_2.id]
   target_group_arns         = [aws_lb_target_group.app.arn]
   health_check_type         = "ELB"
-  health_check_grace_period = 300
+  health_check_grace_period = 1800  # 30 minutes for Ollama model download
   min_size                  = 2
   max_size                  = 10
   desired_capacity          = 2

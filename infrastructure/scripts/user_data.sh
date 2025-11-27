@@ -33,8 +33,35 @@ if [ -n "$OLLAMA_MODEL" ]; then
     ollama pull "$OLLAMA_MODEL" || echo "⚠️ Model pull failed, will retry on first use"
 fi
 
+# Create a simple health check endpoint on port 80 FIRST
+echo "🏥 Creating health check endpoint..."
+mkdir -p /var/www/html
+echo "OK" > /var/www/html/index.html
+python3 -m http.server 80 --directory /var/www/html &
+HEALTH_PID=$!
+echo "✅ Health check endpoint running on port 80"
+
 # Run Open-WebUI Docker container
 echo "🌐 Setting up Open-WebUI..."
+docker run -d \
+  --name open-webui \
+  -p 8080:8080 \
+  -e OLLAMA_BASE_URL=http://localhost:11434 \
+  -e WEBUI_AUTH=false \
+  -v open-webui:/app/backend/data \
+  --add-host=host.docker.internal:host-gateway \
+  --restart always \
+  ghcr.io/open-webui/open-webui:main
+
+# Wait for container to start
+echo "⏳ Waiting for Open-WebUI to start..."
+sleep 30
+
+# Once Open-WebUI is ready, stop the health check server and let Open-WebUI take port 80
+echo "🔄 Switching to Open-WebUI on port 80..."
+kill $HEALTH_PID 2>/dev/null || true
+docker stop open-webui
+docker rm open-webui
 docker run -d \
   --name open-webui \
   -p 80:8080 \
@@ -45,9 +72,7 @@ docker run -d \
   --restart always \
   ghcr.io/open-webui/open-webui:main
 
-# Wait for container to start
-echo "⏳ Waiting for Open-WebUI to start..."
-sleep 15
+sleep 10
 
 # Verify Ollama is running
 echo "🔍 Verifying Ollama service..."
