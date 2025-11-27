@@ -17,6 +17,15 @@ terraform {
       version = "~> 3.0"
     }
   }
+
+  # Remote state backend (uncomment and configure for CI/CD)
+  # backend "s3" {
+  #   bucket         = "ollama-terraform-state"
+  #   key            = "production/terraform.tfstate"
+  #   region         = "us-east-1"
+  #   dynamodb_table = "ollama-terraform-locks"
+  #   encrypt        = true
+  # }
 }
 
 provider "aws" {

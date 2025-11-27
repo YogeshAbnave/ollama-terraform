@@ -30,6 +30,25 @@ jobs:
         with:
           terraform_version: 1.5.0
 
+      - name: Check if infrastructure exists
+        id: check-infra
+        run: |
+          echo "🔍 Checking for existing infrastructure..."
+          
+          # Check if ALB exists
+          ALB_EXISTS=$(aws elbv2 describe-load-balancers \
+            --names ollama-alb \
+            --query 'LoadBalancers[0].LoadBalancerArn' \
+            --output text 2>/dev/null || echo "")
+          
+          if [ -n "$ALB_EXISTS" ] && [ "$ALB_EXISTS" != "None" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "✅ Infrastructure already exists"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "📦 No existing infrastructure found"
+          fi
+
       - name: Terraform Init
         working-directory: ./infrastructure
         run: terraform init
@@ -40,26 +59,35 @@ jobs:
 
       - name: Terraform Plan
         working-directory: ./infrastructure
-        run: terraform plan -out=tfplan
+        run: |
+          if [ "${{ steps.check-infra.outputs.exists }}" = "true" ]; then
+            echo "⚠️ Infrastructure exists. Skipping plan to avoid conflicts."
+            echo "To update infrastructure, use local Terraform with state file."
+          else
+            terraform plan -out=tfplan
+          fi
 
       - name: Terraform Apply
+        if: steps.check-infra.outputs.exists != 'true'
         working-directory: ./infrastructure
         run: terraform apply -auto-approve tfplan
 
-      - name: Get Infrastructure Outputs
+      - name: Get Infrastructure Info
         id: outputs
-        working-directory: ./infrastructure
         run: |
-          echo "alb_dns=$(terraform output -raw ollama_alb_dns_name)" >> $GITHUB_OUTPUT
-          echo "webui_url=$(terraform output -raw ollama_open_webui_url)" >> $GITHUB_OUTPUT
-          echo "api_url=$(terraform output -raw ollama_api_url)" >> $GITHUB_OUTPUT
+          # Get ALB DNS
+          ALB_DNS=$(aws elbv2 describe-load-balancers \
+            --names ollama-alb \
+            --query 'LoadBalancers[0].DNSName' \
+            --output text 2>/dev/null || echo "")
+          
+          if [ -n "$ALB_DNS" ]; then
+            echo "alb_dns=$ALB_DNS" >> $GITHUB_OUTPUT
+            echo "webui_url=http://${ALB_DNS}:8080" >> $GITHUB_OUTPUT
+            echo "api_url=http://${ALB_DNS}:11434" >> $GITHUB_OUTPUT
+          fi
 
-      - name: Wait for Infrastructure
-        run: |
-          echo "⏳ Waiting for infrastructure to be ready..."
-          sleep 60
-
-      - name: Verify Deployment
+      - name: Verify Infrastructure
         run: |
           echo "🔍 Verifying Ollama infrastructure..."
           
@@ -68,7 +96,7 @@ jobs:
           if [ -n "$ALB_DNS" ]; then
             echo "✅ ALB DNS: $ALB_DNS"
           else
-            echo "❌ ALB DNS not found"
+            echo "❌ ALB not found"
             exit 1
           fi
           
@@ -79,12 +107,27 @@ jobs:
             --output text 2>/dev/null || echo "0")
           
           echo "✅ ASG Desired Capacity: $ASG_STATUS"
+          
+          # Check running instances
+          INSTANCE_COUNT=$(aws ec2 describe-instances \
+            --filters "Name=tag:Name,Values=ollama-asg-instance" \
+                      "Name=instance-state-name,Values=running" \
+            --query 'length(Reservations[*].Instances[*])' \
+            --output text 2>/dev/null || echo "0")
+          
+          echo "✅ Running Instances: $INSTANCE_COUNT"
 
       - name: Create Deployment Summary
         run: |
-          echo "### 🚀 Ollama Infrastructure Deployed" >> $GITHUB_STEP_SUMMARY
+          echo "### 🚀 Ollama Infrastructure Status" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Status:** ✅ Infrastructure deployed successfully" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ steps.check-infra.outputs.exists }}" = "true" ]; then
+            echo "**Status:** ✅ Infrastructure already deployed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "**Status:** ✅ Infrastructure deployed successfully" >> $GITHUB_STEP_SUMMARY
+          fi
+          
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Open-WebUI URL:** ${{ steps.outputs.outputs.webui_url }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -92,9 +135,9 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Load Balancer:** ${{ steps.outputs.outputs.alb_dns }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Note:** Wait 10-25 minutes for instances to fully initialize and download Ollama models." >> $GITHUB_STEP_SUMMARY
+          echo "**Note:** If newly deployed, wait 10-25 minutes for instances to fully initialize and download Ollama models." >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Timestamp:** $(date -u)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "---" >> $GITHUB_STEP_SUMMARY
-          echo "*Deployed via GitHub Actions*" >> $GITHUB_STEP_SUMMARY
+          echo "*Checked via GitHub Actions*" >> $GITHUB_STEP_SUMMARY
