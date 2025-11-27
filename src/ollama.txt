@@ -1,0 +1,41 @@
+Using Script:
+- Send Scripts To The Instance:
+  scp -i chabi.cer make_script.sh cleanup_script.sh ubuntu@<YOUR_IP>:/home/ubuntu
+- chmod +x make_script.sh cleanup_script.sh
+- ./make_script.sh
+
+
+
+Manually:
+- sudo apt update
+- sudo snap install ollama
+curl -fsSL https://ollama.com/install.sh | sh
+- ollama --version
+- ollama run deepseek-r1:8b
+- sudo snap install docker
+- sudo systemctl start docker
+- sudo systemctl enable docker
+
+- sudo docker run -d \
+  --network host \
+  --name open-webui \
+  -p 3000:8080 \
+  -e OLLAMA_BASE_URL=http://localhost:11434 \
+  -v open-webui:/app/backend/data \
+  --add-host=host.docker.internal:host-gateway \
+  --restart always \
+  ghcr.io/open-webui/open-webui:main
+
+- Go To http://65.0.81.2:8080/
+
+
+Troubleshooting:
+
+- sudo docker stop open-webui # Stops Docker Container
+- sudo docker start open-webui # Starts Docker Container
+- sudo docker rm -f open-webui #Remove Docker Container
+- sudo ss -tnlp | grep ollama # Check Ollama Is Running On Port 11434
+- curl http://localhost:11434/api/tags # Check If Correct Output Is Visible
+- ollama rm deepseek-r1:8b # If while installing new model storage runs out
+- sudo snap stop ollama # To Stop Ollama
+- sudo snap start ollama # To Start Ollama
