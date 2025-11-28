@@ -108,12 +108,30 @@ resource "aws_security_group" "ollama_sg" {
   description = "Security group for Ollama and Open-WebUI"
   vpc_id      = local.vpc_id
 
-  # Allow all inbound traffic
+  # SSH access
   ingress {
-    description = "Allow all inbound traffic"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
+    description = "SSH access"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = [var.allowed_ssh_cidr]
+  }
+
+  # Open-WebUI access (port 8080)
+  ingress {
+    description = "Open-WebUI HTTP access"
+    from_port   = 8080
+    to_port     = 8080
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # Ollama API access (optional, for external access)
+  ingress {
+    description = "Ollama API access"
+    from_port   = 11434
+    to_port     = 11434
+    protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
 
@@ -172,6 +190,9 @@ resource "aws_instance" "ollama_server" {
   }
 
   user_data = data.template_file.user_data.rendered
+  
+  # Force user_data to run on every instance replacement
+  user_data_replace_on_change = true
 
   # Enable detailed monitoring
   monitoring = true

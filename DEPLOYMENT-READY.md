@@ -67,7 +67,10 @@ terraform output
 
 ### Phase 1: Infrastructure Creation (2-3 minutes)
 - ✓ VPC and subnet configuration
-- ✓ Security group creation (allows all traffic for testing)
+- ✓ Security group creation with specific ports:
+  - Port 22 (SSH) - restricted to your IP
+  - Port 8080 (Open-WebUI) - open to all
+  - Port 11434 (Ollama API) - open to all
 - ✓ EC2 instance launch (Ubuntu 22.04)
 - ✓ Public IP assignment
 
@@ -184,6 +187,22 @@ Edit `terraform.tfvars`:
 
 ```hcl
 git_branch = "develop"  # Or any branch name
+```
+
+### Restrict SSH Access (Recommended for Production)
+
+Edit `terraform.tfvars` to limit SSH to your IP only:
+
+```hcl
+allowed_ssh_cidr = "YOUR.IP.ADDRESS.HERE/32"  # Replace with your actual IP
+```
+
+To find your IP:
+```powershell
+# Windows
+(Invoke-WebRequest -Uri "https://api.ipify.org").Content
+
+# Or visit: https://whatismyip.com
 ```
 
 ---

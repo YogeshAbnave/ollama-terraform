@@ -212,6 +212,15 @@ main() {
     cloud-init status --wait
     log_success "MAIN" "Cloud-init completed"
     
+    # Update system and install git
+    log_info "MAIN" "Updating system packages..."
+    apt-get update -y
+    log_success "MAIN" "System packages updated"
+    
+    log_info "MAIN" "Installing git..."
+    apt-get install -y git
+    log_success "MAIN" "Git installed successfully"
+    
     # Clone repository
     if ! clone_repository; then
         log_error "MAIN" "Deployment failed at git clone stage"
