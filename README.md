@@ -123,6 +123,24 @@ cat /home/ubuntu/deployment-status.txt
 
 ## 🛠️ Troubleshooting
 
+### 🚨 WebUI Not Working? EMERGENCY FIX:
+
+```bash
+# 1. Get instance IP
+terraform output instance_public_ip
+
+# 2. SSH into instance
+ssh -i ollama-key.pem ubuntu@<YOUR-IP>
+
+# 3. Run fix script
+curl -sSL https://raw.githubusercontent.com/YogeshAbnave/ollama-terraform/main/fix-deployment.sh | sudo bash
+
+# 4. Access WebUI
+# http://<YOUR-IP>:8080
+```
+
+**See `EMERGENCY-FIX.md` for detailed fix instructions!**
+
 ### Workflow Fails
 
 - Verify AWS credentials are correct
@@ -131,14 +149,16 @@ cat /home/ubuntu/deployment-status.txt
 
 ### WebUI Not Accessible
 
-- Wait full 10 minutes for installation
+- Wait full 15 minutes for installation
+- Run emergency fix script (see above)
 - Check security group allows port 8080
 - SSH in and check logs: `sudo tail -f /var/log/user-data.log`
 
 ### Need More Help?
 
-- See `GITHUB-ACTIONS-SETUP.md` for detailed setup
-- See `TROUBLESHOOTING.md` for common issues
+- **`EMERGENCY-FIX.md`** - Quick fix for WebUI issues
+- **`GITHUB-ACTIONS-SETUP.md`** - Detailed setup
+- **`TROUBLESHOOTING.md`** - Common issues
 - Check workflow logs in Actions tab
 
 ## 🔐 Security

@@ -147,18 +147,80 @@ execute_deployment() {
     chmod +x "$script_path"
     log_success "DEPLOY" "Deployment script made executable"
     
-    # Execute deployment script with default model selection
-    log_info "DEPLOY" "Executing deployment script with model option $DEFAULT_MODEL"
+    # Install directly without using the interactive script
+    log_info "DEPLOY" "Installing Ollama and Open-WebUI directly"
     
-    if echo "$DEFAULT_MODEL" | sudo -u ubuntu "$script_path" install; then
-        local exit_code=$?
-        log_success "DEPLOY" "Deployment script completed successfully (exit code: $exit_code)"
+    # Install Ollama
+    log_info "DEPLOY" "Installing Ollama..."
+    if ! command -v ollama &> /dev/null; then
+        snap install ollama
+        sleep 5
+        log_success "DEPLOY" "Ollama installed"
+    else
+        log_info "DEPLOY" "Ollama already installed"
+    fi
+    
+    # Install Docker
+    log_info "DEPLOY" "Installing Docker..."
+    if ! command -v docker &> /dev/null; then
+        snap install docker
+        sleep 5
+        log_success "DEPLOY" "Docker installed"
+    else
+        log_info "DEPLOY" "Docker already installed"
+    fi
+    
+    # Wait for services
+    sleep 10
+    
+    # Map model choice to model name
+    case "$DEFAULT_MODEL" in
+        1) MODEL_NAME="deepseek-r1:8b" ;;
+        2) MODEL_NAME="deepseek-r1:14b" ;;
+        3) MODEL_NAME="deepseek-r1:32b" ;;
+        4) MODEL_NAME="llama3.2:3b" ;;
+        5) MODEL_NAME="llama3.2:8b" ;;
+        6) MODEL_NAME="qwen2.5:7b" ;;
+        *) MODEL_NAME="deepseek-r1:8b" ;;
+    esac
+    
+    # Download model
+    log_info "DEPLOY" "Downloading AI model: $MODEL_NAME (this may take 5-10 minutes)"
+    if ! ollama list 2>/dev/null | grep -q "$MODEL_NAME"; then
+        echo "exit" | ollama run "$MODEL_NAME" || true
+        sleep 5
+        log_success "DEPLOY" "Model downloaded"
+    else
+        log_info "DEPLOY" "Model already downloaded"
+    fi
+    
+    # Remove existing container
+    if docker ps -a --filter name=open-webui --format '{{.Names}}' | grep -q open-webui; then
+        log_info "DEPLOY" "Removing existing Open-WebUI container"
+        docker rm -f open-webui
+    fi
+    
+    # Deploy Open-WebUI
+    log_info "DEPLOY" "Deploying Open-WebUI container..."
+    docker run -d \
+      --network host \
+      --name open-webui \
+      -p 8080:8080 \
+      -e OLLAMA_BASE_URL=http://127.0.0.1:11434 \
+      -v open-webui:/app/backend/data \
+      --add-host=host.docker.internal:host-gateway \
+      --restart always \
+      ghcr.io/open-webui/open-webui:main
+    
+    sleep 10
+    
+    # Verify deployment
+    if docker ps | grep -q open-webui; then
+        log_success "DEPLOY" "Open-WebUI container is running"
         return 0
     else
-        local exit_code=$?
-        log_error "DEPLOY" "Deployment script failed with exit code: $exit_code"
-        log_error "DEPLOY" "Recovery suggestion: Check logs above for specific error details"
-        create_status_file "failed" "deployment_script" "Deployment script failed with exit code $exit_code"
+        log_error "DEPLOY" "Open-WebUI container failed to start"
+        docker logs open-webui 2>&1 | tail -20
         return 1
     fi
 }
