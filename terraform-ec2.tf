@@ -1,5 +1,5 @@
 # Terraform Configuration for Ollama + Open-WebUI EC2 Deployment
-# This file automates the creation of EC2 instance with proper configuration
+# This version uses the default VPC to avoid Internet Gateway limits
 
 terraform {
   required_version = ">= 1.0"
@@ -87,72 +87,24 @@ data "aws_ami" "ubuntu" {
   }
 }
 
-# VPC
-resource "aws_vpc" "ollama_vpc" {
-  cidr_block           = "10.0.0.0/16"
-  enable_dns_hostnames = true
-  enable_dns_support   = true
+# Use default VPC
+data "aws_vpc" "default" {
+  default = true
+}
 
-  tags = {
-    Name    = "${var.project_name}-vpc"
-    Project = var.project_name
+# Use default subnet
+data "aws_subnets" "default" {
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.default.id]
   }
 }
 
-# Internet Gateway
-resource "aws_internet_gateway" "ollama_igw" {
-  vpc_id = aws_vpc.ollama_vpc.id
-
-  tags = {
-    Name    = "${var.project_name}-igw"
-    Project = var.project_name
-  }
-}
-
-# Public Subnet
-resource "aws_subnet" "ollama_subnet" {
-  vpc_id                  = aws_vpc.ollama_vpc.id
-  cidr_block              = "10.0.1.0/24"
-  map_public_ip_on_launch = true
-  availability_zone       = data.aws_availability_zones.available.names[0]
-
-  tags = {
-    Name    = "${var.project_name}-subnet"
-    Project = var.project_name
-  }
-}
-
-# Route Table
-resource "aws_route_table" "ollama_rt" {
-  vpc_id = aws_vpc.ollama_vpc.id
-
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.ollama_igw.id
-  }
-
-  tags = {
-    Name    = "${var.project_name}-rt"
-    Project = var.project_name
-  }
-}
-
-# Route Table Association
-resource "aws_route_table_association" "ollama_rta" {
-  subnet_id      = aws_subnet.ollama_subnet.id
-  route_table_id = aws_route_table.ollama_rt.id
-}
-
-# Data source for availability zones
-data "aws_availability_zones" "available" {
-  state = "available"
-}
-
-# Security Group
+# Security Group in default VPC
 resource "aws_security_group" "ollama_sg" {
   name        = "${var.project_name}-security-group"
   description = "Security group for Ollama and Open-WebUI"
-  vpc_id      = aws_vpc.ollama_vpc.id
+  vpc_id      = data.aws_vpc.default.id
 
   # Allow all inbound traffic
   ingress {
@@ -192,9 +144,12 @@ resource "aws_instance" "ollama_server" {
   ami           = data.aws_ami.ubuntu.id
   instance_type = var.instance_type
   key_name      = var.key_name
-  subnet_id     = aws_subnet.ollama_subnet.id
+  subnet_id     = tolist(data.aws_subnets.default.ids)[0]
 
   vpc_security_group_ids = [aws_security_group.ollama_sg.id]
+
+  # Assign public IP
+  associate_public_ip_address = true
 
   root_block_device {
     volume_size           = var.storage_size
@@ -222,17 +177,6 @@ resource "aws_instance" "ollama_server" {
 
   tags = {
     Name    = "${var.project_name}-server"
-    Project = var.project_name
-  }
-}
-
-# Elastic IP (optional, for static IP)
-resource "aws_eip" "ollama_eip" {
-  instance = aws_instance.ollama_server.id
-  domain   = "vpc"
-
-  tags = {
-    Name    = "${var.project_name}-eip"
     Project = var.project_name
   }
 }
@@ -266,7 +210,7 @@ output "instance_id" {
 
 output "instance_public_ip" {
   description = "Public IP address of the EC2 instance"
-  value       = aws_eip.ollama_eip.public_ip
+  value       = aws_instance.ollama_server.public_ip
 }
 
 output "instance_public_dns" {
@@ -276,12 +220,12 @@ output "instance_public_dns" {
 
 output "webui_url" {
   description = "URL to access Open-WebUI"
-  value       = "http://${aws_eip.ollama_eip.public_ip}:8080"
+  value       = "http://${aws_instance.ollama_server.public_ip}:8080"
 }
 
 output "ssh_command" {
   description = "SSH command to connect to the instance"
-  value       = "ssh -i ${var.key_name}.pem ubuntu@${aws_eip.ollama_eip.public_ip}"
+  value       = "ssh -i ${var.key_name}.pem ubuntu@${aws_instance.ollama_server.public_ip}"
 }
 
 output "security_group_id" {
@@ -291,10 +235,10 @@ output "security_group_id" {
 
 output "deployment_log_command" {
   description = "SSH command to view deployment logs"
-  value       = "ssh -i ${var.key_name}.pem ubuntu@${aws_eip.ollama_eip.public_ip} 'sudo tail -f /var/log/user-data.log'"
+  value       = "ssh -i ${var.key_name}.pem ubuntu@${aws_instance.ollama_server.public_ip} 'sudo tail -f /var/log/user-data.log'"
 }
 
 output "deployment_status_command" {
   description = "SSH command to check deployment status"
-  value       = "ssh -i ${var.key_name}.pem ubuntu@${aws_eip.ollama_eip.public_ip} 'cat /home/ubuntu/deployment-status.txt'"
+  value       = "ssh -i ${var.key_name}.pem ubuntu@${aws_instance.ollama_server.public_ip} 'cat /home/ubuntu/deployment-status.txt'"
 }
