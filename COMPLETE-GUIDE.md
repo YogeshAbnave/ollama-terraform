@@ -485,13 +485,54 @@ sudo docker run --rm \
 ```
 .
 ├── ec2-deploy-ollama.sh          # Main deployment script
+├── user-data.sh.tpl              # EC2 initialization template
 ├── terraform-ec2.tf              # Infrastructure config
 ├── terraform.tfvars              # Your configuration
 ├── terraform.tfvars.example      # Config template
+├── deploy.ps1                    # PowerShell deployment
+├── deploy.bat                    # Windows batch deployment
 ├── .github/workflows/deploy.yml  # CI/CD automation
 ├── COMPLETE-GUIDE.md             # This file
 └── README.md                     # Quick overview
 ```
+
+## 🔧 New Features
+
+### Automated Git Clone
+
+The EC2 instance automatically clones your repository on first boot:
+
+- Configurable repository URL and branch
+- Retry logic (3 attempts with 10s delay)
+- Comprehensive error logging
+- Automatic file ownership setup
+
+### Idempotent Installation
+
+The deployment script can be run multiple times safely:
+
+- Skips already installed components
+- Verifies functionality before skipping
+- Recreates containers with latest configuration
+- No duplicate installations
+
+### Deployment Status Tracking
+
+Monitor deployment progress:
+
+```bash
+# View status file
+cat /home/ubuntu/deployment-status.txt
+
+# View deployment logs
+sudo tail -f /var/log/user-data.log
+```
+
+Status file includes:
+- Overall deployment status
+- Individual component status
+- Error messages and recovery steps
+- WebUI URL
 
 ---
 
@@ -594,6 +635,8 @@ sudo journalctl -xe
 3. **Out of storage** → Remove unused models
 4. **Slow responses** → Upgrade instance or use smaller model
 5. **High costs** → Stop instance when not in use
+6. **Git clone failed** → Check repository URL in terraform.tfvars, ensure repo is public or add authentication
+7. **Deployment stuck** → Check /var/log/user-data.log for errors, verify /home/ubuntu/deployment-status.txt
 
 ---
 

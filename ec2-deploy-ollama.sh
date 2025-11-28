@@ -15,11 +15,82 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Function to print colored messages
-print_info() { echo -e "${BLUE}ℹ️  $1${NC}"; }
-print_success() { echo -e "${GREEN}✅ $1${NC}"; }
-print_warning() { echo -e "${YELLOW}⚠️  $1${NC}"; }
-print_error() { echo -e "${RED}❌ $1${NC}"; }
+# Function to print colored messages with timestamps
+log_message() {
+    local level="$1"
+    local message="$2"
+    local timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+    echo "[$timestamp] [$level] $message"
+}
+
+print_info() { 
+    log_message "INFO" "$1"
+    echo -e "${BLUE}ℹ️  $1${NC}"; 
+}
+
+print_success() { 
+    log_message "SUCCESS" "$1"
+    echo -e "${GREEN}✅ $1${NC}"; 
+}
+
+print_warning() { 
+    log_message "WARNING" "$1"
+    echo -e "${YELLOW}⚠️  $1${NC}"; 
+}
+
+print_error() { 
+    log_message "ERROR" "$1"
+    echo -e "${RED}❌ $1${NC}"; 
+}
+
+################################################################################
+# IDEMPOTENCY CHECK FUNCTIONS
+################################################################################
+
+check_ollama_installed() {
+    if command -v ollama &> /dev/null; then
+        # Check if Ollama is functional
+        if ollama --version &> /dev/null; then
+            print_info "Ollama is already installed and functional"
+            return 0
+        else
+            print_warning "Ollama is installed but not functional, will reinstall"
+            return 1
+        fi
+    fi
+    return 1
+}
+
+check_docker_installed() {
+    if command -v docker &> /dev/null; then
+        # Check if Docker is functional
+        if sudo docker ps &> /dev/null; then
+            print_info "Docker is already installed and functional"
+            return 0
+        else
+            print_warning "Docker is installed but not functional, will reinstall"
+            return 1
+        fi
+    fi
+    return 1
+}
+
+check_model_installed() {
+    local model_name="$1"
+    if ollama list 2>/dev/null | grep -q "$model_name"; then
+        print_info "Model $model_name is already installed"
+        return 0
+    fi
+    return 1
+}
+
+check_webui_container() {
+    if sudo docker ps -a --filter name=open-webui --format '{{.Names}}' | grep -q open-webui; then
+        print_info "Open-WebUI container already exists"
+        return 0
+    fi
+    return 1
+}
 
 ################################################################################
 # INSTALLATION FUNCTIONS
@@ -32,23 +103,36 @@ install_ollama_webui() {
     print_info "Updating system packages..."
     sudo apt update
     
-    # Install Ollama
-    print_info "Installing Ollama..."
-    sudo snap install ollama
+    # Install Ollama with idempotency check
+    if check_ollama_installed; then
+        print_success "Skipping Ollama installation (already installed)"
+    else
+        print_info "Installing Ollama..."
+        sudo snap install ollama
+        
+        # Check Ollama version
+        print_info "Checking Ollama installation..."
+        ollama --version
+        print_success "Ollama installed successfully"
+    fi
     
     # Check Ollama version
     print_info "Checking Ollama installation..."
     ollama --version
     print_success "Ollama installed successfully"
     
-    # Install Docker
-    print_info "Installing Docker..."
-    sudo snap install docker
-    print_success "Docker installed successfully"
-    
-    # Wait for services to start
-    print_info "Waiting for services to initialize..."
-    sleep 5
+    # Install Docker with idempotency check
+    if check_docker_installed; then
+        print_success "Skipping Docker installation (already installed)"
+    else
+        print_info "Installing Docker..."
+        sudo snap install docker
+        print_success "Docker installed successfully"
+        
+        # Wait for services to start
+        print_info "Waiting for services to initialize..."
+        sleep 5
+    fi
     
     # Model selection
     echo ""
@@ -87,16 +171,31 @@ install_ollama_webui() {
     done
     
     if [[ -n "$MODEL_NAME" ]]; then
-        print_info "Downloading and running model: $MODEL_NAME"
-        print_warning "This may take several minutes depending on model size..."
-        ollama run "$MODEL_NAME"
-        print_success "Model $MODEL_NAME installed successfully"
+        # Check if model is already installed
+        if check_model_installed "$MODEL_NAME"; then
+            print_success "Skipping model download (already installed)"
+        else
+            print_info "Downloading and running model: $MODEL_NAME"
+            print_warning "This may take several minutes depending on model size..."
+            ollama run "$MODEL_NAME" <<< "exit"
+            print_success "Model $MODEL_NAME installed successfully"
+        fi
     else
         print_warning "Skipping model installation"
     fi
     
-    # Run Open-WebUI Docker container
+    # Run Open-WebUI Docker container with recreation logic
     print_info "Setting up Open-WebUI..."
+    
+    # If container exists, remove it first to ensure latest configuration
+    if check_webui_container; then
+        print_info "Removing existing Open-WebUI container..."
+        sudo docker rm -f open-webui
+        print_success "Existing container removed"
+    fi
+    
+    # Create new container
+    print_info "Creating Open-WebUI container..."
     sudo docker run -d \
       --network host \
       --name open-webui \

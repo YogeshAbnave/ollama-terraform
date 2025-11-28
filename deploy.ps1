@@ -80,6 +80,23 @@ if (Test-Path $KeyFile) {
 Write-Host ""
 Write-Info "Creating terraform.tfvars..."
 
+# Get current git repository URL (if in a git repo)
+$gitRepoUrl = ""
+try {
+    $gitRemote = git config --get remote.origin.url 2>$null
+    if ($gitRemote) {
+        $gitRepoUrl = $gitRemote
+        Write-Info "Detected git repository: $gitRepoUrl"
+    } else {
+        $gitRepoUrl = "https://github.com/yourusername/ollama-deployment.git"
+        Write-Warning "Not in a git repository, using default URL"
+        Write-Warning "Update git_repo_url in terraform.tfvars with your repository URL"
+    }
+} catch {
+    $gitRepoUrl = "https://github.com/yourusername/ollama-deployment.git"
+    Write-Warning "Could not detect git repository, using default URL"
+}
+
 # Create terraform.tfvars
 $tfvarsContent = "# Auto-generated configuration`n"
 $tfvarsContent += "aws_region       = `"$Region`"`n"
@@ -88,6 +105,9 @@ $tfvarsContent += "storage_size     = $StorageSize`n"
 $tfvarsContent += "key_name         = `"$KeyName`"`n"
 $tfvarsContent += "allowed_ssh_cidr = `"$MyIP/32`"`n"
 $tfvarsContent += "project_name     = `"$ProjectName`"`n"
+$tfvarsContent += "git_repo_url     = `"$gitRepoUrl`"`n"
+$tfvarsContent += "git_branch       = `"main`"`n"
+$tfvarsContent += "default_model    = `"1`"`n"
 
 $tfvarsContent | Out-File -FilePath "terraform.tfvars" -Encoding UTF8
 Write-Success "Configuration created"
@@ -127,17 +147,31 @@ if ($LASTEXITCODE -eq 0) {
         Write-Info "First user to register becomes admin"
         Write-Host ""
         
+        # Save to file
+        $webuiUrl | Out-File -FilePath "PRODUCTION-URL.txt" -Encoding UTF8
+        Write-Success "URL saved to: PRODUCTION-URL.txt"
+        
         # Copy URL to clipboard if possible
         try {
             $webuiUrl | Set-Clipboard
             Write-Success "URL copied to clipboard!"
         } catch {
-            # Clipboard not available
+            Write-Warning "Could not copy to clipboard (clipboard not available)"
         }
         
-        # Save to file
-        $webuiUrl | Out-File -FilePath "PRODUCTION-URL.txt" -Encoding UTF8
-        Write-Success "URL saved to: PRODUCTION-URL.txt"
+        # Display deployment status commands
+        Write-Host ""
+        Write-Info "Deployment Status Commands:"
+        $logCmd = terraform output -raw deployment_log_command 2>&1
+        $statusCmd = terraform output -raw deployment_status_command 2>&1
+        if ($logCmd -notmatch "error") {
+            Write-Host "  View logs: " -NoNewline
+            Write-Host "$logCmd" -ForegroundColor Yellow
+        }
+        if ($statusCmd -notmatch "error") {
+            Write-Host "  Check status: " -NoNewline
+            Write-Host "$statusCmd" -ForegroundColor Yellow
+        }
         
         Write-Host ""
         Write-Info "Opening browser in 3 seconds..."

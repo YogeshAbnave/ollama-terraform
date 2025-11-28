@@ -33,7 +33,7 @@ variable "key_name" {
 variable "allowed_ssh_cidr" {
   description = "CIDR block allowed to SSH (your IP)"
   type        = string
-  default     = "0.0.0.0/0"  # Change to your IP for security
+  default     = "0.0.0.0/0" # Change to your IP for security
 }
 
 variable "storage_size" {
@@ -46,6 +46,24 @@ variable "project_name" {
   description = "Project name for resource tagging"
   type        = string
   default     = "ollama-webui"
+}
+
+variable "git_repo_url" {
+  description = "Git repository URL containing deployment scripts"
+  type        = string
+  default     = "https://github.com/yourusername/ollama-deployment.git"
+}
+
+variable "git_branch" {
+  description = "Git branch to clone"
+  type        = string
+  default     = "main"
+}
+
+variable "default_model" {
+  description = "Default Ollama model to install (1=deepseek-r1:8b, 2=deepseek-r1:14b, etc.)"
+  type        = string
+  default     = "1"
 }
 
 # Provider configuration
@@ -180,30 +198,13 @@ resource "aws_security_group" "ollama_sg" {
 
 # User data script for automatic deployment
 data "template_file" "user_data" {
-  template = <<-EOF
-    #!/bin/bash
-    set -e
-    
-    # Log output
-    exec > >(tee /var/log/user-data.log)
-    exec 2>&1
-    
-    echo "Starting Ollama deployment..."
-    
-    # Wait for cloud-init to complete
-    cloud-init status --wait
-    
-    # Download deployment script
-    cd /home/ubuntu
-    curl -fsSL https://raw.githubusercontent.com/your-repo/main/ec2-deploy-ollama.sh -o ec2-deploy-ollama.sh
-    chmod +x ec2-deploy-ollama.sh
-    chown ubuntu:ubuntu ec2-deploy-ollama.sh
-    
-    # Run installation (non-interactive with default model)
-    echo "1" | sudo -u ubuntu ./ec2-deploy-ollama.sh install
-    
-    echo "Deployment complete!"
-  EOF
+  template = file("${path.module}/user-data.sh.tpl")
+
+  vars = {
+    git_repo_url  = var.git_repo_url
+    git_branch    = var.git_branch
+    default_model = var.default_model
+  }
 }
 
 # EC2 Instance
@@ -306,4 +307,14 @@ output "ssh_command" {
 output "security_group_id" {
   description = "ID of the security group"
   value       = aws_security_group.ollama_sg.id
+}
+
+output "deployment_log_command" {
+  description = "SSH command to view deployment logs"
+  value       = "ssh -i ${var.key_name}.pem ubuntu@${aws_eip.ollama_eip.public_ip} 'sudo tail -f /var/log/user-data.log'"
+}
+
+output "deployment_status_command" {
+  description = "SSH command to check deployment status"
+  value       = "ssh -i ${var.key_name}.pem ubuntu@${aws_eip.ollama_eip.public_ip} 'cat /home/ubuntu/deployment-status.txt'"
 }

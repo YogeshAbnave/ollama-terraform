@@ -89,8 +89,11 @@ terraform destroy
 ## 📁 Project Files
 
 - `ec2-deploy-ollama.sh` - Main deployment script (runs on EC2)
+- `user-data.sh.tpl` - EC2 initialization script template
 - `terraform-ec2.tf` - Infrastructure configuration
 - `terraform.tfvars.example` - Configuration template
+- `deploy.ps1` - PowerShell deployment script
+- `deploy.bat` - Windows batch deployment script
 - `COMPLETE-GUIDE.md` - Full documentation
 - `.github/workflows/deploy.yml` - CI/CD automation
 
@@ -100,8 +103,39 @@ terraform destroy
 
 - ✅ **Ollama** - Run AI models locally
 - ✅ **Open-WebUI** - ChatGPT-like interface
-- ✅ **deepseek-r1:8b** - 8B parameter AI model
+- ✅ **deepseek-r1:8b** - 8B parameter AI model (configurable)
 - ✅ **Complete infrastructure** - VPC, security, monitoring
+- ✅ **Automated deployment** - Git clone and install on boot
+- ✅ **Idempotent installation** - Safe to run multiple times
+- ✅ **Comprehensive logging** - Full deployment logs and status
+
+---
+
+## 🔧 Configuration
+
+### Git Repository Setup
+
+The deployment automatically clones your repository on EC2 boot. Update `terraform.tfvars`:
+
+```hcl
+git_repo_url  = "https://github.com/yourusername/your-repo.git"
+git_branch    = "main"
+default_model = "1"  # 1=deepseek-r1:8b (recommended)
+```
+
+### Deployment Status
+
+After deployment, check status:
+
+```powershell
+# View deployment logs
+terraform output deployment_log_command
+
+# Check deployment status
+terraform output deployment_status_command
+```
+
+Status file location: `/home/ubuntu/deployment-status.txt`
 
 ---
 
