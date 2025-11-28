@@ -1,5 +1,5 @@
 # Terraform Configuration for Ollama + Open-WebUI EC2 Deployment
-# This version uses the default VPC to avoid Internet Gateway limits
+# This version reuses existing VPC and Internet Gateway to avoid limits
 
 terraform {
   required_version = ">= 1.0"
@@ -22,7 +22,6 @@ variable "instance_type" {
   description = "EC2 instance type"
   type        = string
   default     = "t3.xlarge"
-  # Options: t3.large, t3.xlarge, c5.2xlarge, g4dn.xlarge
 }
 
 variable "key_name" {
@@ -33,7 +32,7 @@ variable "key_name" {
 variable "allowed_ssh_cidr" {
   description = "CIDR block allowed to SSH (your IP)"
   type        = string
-  default     = "0.0.0.0/0" # Change to your IP for security
+  default     = "0.0.0.0/0"
 }
 
 variable "storage_size" {
@@ -87,24 +86,27 @@ data "aws_ami" "ubuntu" {
   }
 }
 
-# Use default VPC
-data "aws_vpc" "default" {
-  default = true
+# Get any existing VPC (prefer default, but use any available)
+data "aws_vpcs" "available" {}
+
+# Use the first available VPC
+locals {
+  vpc_id = data.aws_vpcs.available.ids[0]
 }
 
-# Use default subnet
-data "aws_subnets" "default" {
+# Get subnets in the VPC
+data "aws_subnets" "available" {
   filter {
     name   = "vpc-id"
-    values = [data.aws_vpc.default.id]
+    values = [local.vpc_id]
   }
 }
 
-# Security Group in default VPC
+# Security Group
 resource "aws_security_group" "ollama_sg" {
-  name        = "${var.project_name}-security-group"
+  name        = "${var.project_name}-security-group-${formatdate("YYYYMMDDhhmmss", timestamp())}"
   description = "Security group for Ollama and Open-WebUI"
-  vpc_id      = data.aws_vpc.default.id
+  vpc_id      = local.vpc_id
 
   # Allow all inbound traffic
   ingress {
@@ -128,6 +130,10 @@ resource "aws_security_group" "ollama_sg" {
     Name    = "${var.project_name}-sg"
     Project = var.project_name
   }
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 # User data script for automatic deployment
@@ -144,7 +150,7 @@ resource "aws_instance" "ollama_server" {
   ami           = data.aws_ami.ubuntu.id
   instance_type = var.instance_type
   key_name      = var.key_name
-  subnet_id     = tolist(data.aws_subnets.default.ids)[0]
+  subnet_id     = data.aws_subnets.available.ids[0]
 
   vpc_security_group_ids = [aws_security_group.ollama_sg.id]
 
@@ -203,6 +209,11 @@ resource "aws_cloudwatch_metric_alarm" "high_cpu" {
 }
 
 # Outputs
+output "vpc_id" {
+  description = "VPC ID being used"
+  value       = local.vpc_id
+}
+
 output "instance_id" {
   description = "ID of the EC2 instance"
   value       = aws_instance.ollama_server.id
