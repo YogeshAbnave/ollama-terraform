@@ -154,30 +154,12 @@ resource "aws_security_group" "ollama_sg" {
   description = "Security group for Ollama and Open-WebUI"
   vpc_id      = aws_vpc.ollama_vpc.id
 
-  # SSH access
+  # Allow all inbound traffic
   ingress {
-    description = "SSH"
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = [var.allowed_ssh_cidr]
-  }
-
-  # Open-WebUI access
-  ingress {
-    description = "Open-WebUI"
-    from_port   = 8080
-    to_port     = 8080
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  # Ollama API (localhost only, but needed for Docker)
-  ingress {
-    description = "Ollama API"
-    from_port   = 11434
-    to_port     = 11434
-    protocol    = "tcp"
+    description = "Allow all inbound traffic"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
 
