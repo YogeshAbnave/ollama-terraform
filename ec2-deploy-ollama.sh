@@ -110,16 +110,14 @@ install_ollama_webui() {
         print_info "Installing Ollama..."
         sudo snap install ollama
         
+        # Wait for Ollama to initialize
+        sleep 3
+        
         # Check Ollama version
         print_info "Checking Ollama installation..."
         ollama --version
         print_success "Ollama installed successfully"
     fi
-    
-    # Check Ollama version
-    print_info "Checking Ollama installation..."
-    ollama --version
-    print_success "Ollama installed successfully"
     
     # Install Docker with idempotency check
     if check_docker_installed; then
