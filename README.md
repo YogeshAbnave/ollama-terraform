@@ -1,161 +1,193 @@
-# 🚀 Ollama + Open-WebUI EC2 Deployment
+# 🚀 Ollama + Open-WebUI AWS Deployment
 
-Deploy your own private AI assistant (like ChatGPT) on AWS EC2 in 10 minutes.
+Automated deployment of Ollama AI with Open-WebUI on AWS EC2 using GitHub Actions.
 
-## ⚡ Three Ways to Deploy
+## ⚡ Quick Start (3 Steps)
 
-### Option 1: Push to GitHub (Easiest) ⭐
+### 1. Add AWS Credentials to GitHub
+
+1. Go to your repository → **Settings** → **Secrets and variables** → **Actions**
+2. Add these secrets:
+   - `AWS_ACCESS_KEY_ID` - Your AWS access key
+   - `AWS_SECRET_ACCESS_KEY` - Your AWS secret key
+
+### 2. Push to GitHub
 
 ```bash
-git push
+git add .
+git commit -m "Deploy to AWS"
+git push origin main
 ```
 
-**That's it!** GitHub Actions will:
-- ✅ Deploy automatically (3 minutes)
-- ✅ Show production URL in Actions tab
-- ✅ Save URL as downloadable artifact
+### 3. Access Your WebUI
 
-**Setup:** [GITHUB-DEPLOY.md](./GITHUB-DEPLOY.md)
+1. Go to **Actions** tab and watch deployment
+2. After completion, check commit comment for WebUI URL
+3. Wait 10 minutes for installation
+4. Access WebUI at `http://<your-ip>:8080`
 
----
+## 📋 What Gets Deployed
 
-### Option 2: Double-Click (Windows)
+- **EC2 Instance** (Ubuntu 22.04, t3.xlarge)
+- **Ollama** (AI model runtime)
+- **Docker** (Container runtime)
+- **AI Model** (deepseek-r1:8b, ~4.9GB)
+- **Open-WebUI** (Web interface on port 8080)
 
-1. **Double-click** `deploy.bat`
-2. Wait 3 minutes
-3. Browser opens with production URL!
+**Total Time:** ~12 minutes
 
----
+## 🎮 Usage
 
-### Option 3: PowerShell
+### Automatic Deployment
 
-```powershell
-.\deploy.ps1
+Every push to `main` branch automatically deploys:
+
+```bash
+git push origin main
+# ✨ Automatic deployment starts!
 ```
 
----
+### Manual Deployment
 
-### Option 4: Manual
+1. Go to **Actions** tab
+2. Click **Deploy to AWS EC2**
+3. Click **Run workflow**
 
-```powershell
-terraform init
-terraform apply
-terraform output webui_url
+### Destroy Infrastructure
+
+1. Go to **Actions** tab
+2. Click **Destroy AWS Infrastructure**
+3. Type `destroy` to confirm
+4. Click **Run workflow**
+
+## ⚙️ Configuration (Optional)
+
+Add these as GitHub Variables to customize:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `INSTANCE_TYPE` | `t3.xlarge` | EC2 instance type |
+| `STORAGE_SIZE` | `50` | Storage in GB |
+| `DEFAULT_MODEL` | `1` | AI model (1-6) |
+
+**AI Models:**
+- `1` = deepseek-r1:8b (~4.9GB) - Recommended
+- `2` = deepseek-r1:14b (~8.9GB)
+- `3` = deepseek-r1:32b (~20GB)
+- `4` = llama3.2:3b (~2GB)
+- `5` = llama3.2:8b (~4.7GB)
+- `6` = qwen2.5:7b (~4.7GB)
+
+## 📁 Project Structure
+
+```
+.
+├── .github/workflows/
+│   ├── deploy-to-aws.yml          # Main deployment workflow
+│   └── destroy-infrastructure.yml  # Destruction workflow
+├── terraform-ec2.tf                # Infrastructure definition
+├── user-data.sh.tpl                # EC2 initialization script
+├── ec2-deploy-ollama.sh            # Software installation script
+├── terraform.tfvars.example        # Configuration template
+├── README.md                       # This file
+├── GITHUB-ACTIONS-SETUP.md         # Detailed setup guide
+├── GITOPS-QUICKSTART.md            # Quick start guide
+└── TROUBLESHOOTING.md              # Troubleshooting guide
 ```
 
----
+## 🔍 Monitoring
+
+### View Deployment Status
+
+- Go to **Actions** tab
+- Click latest workflow run
+- View real-time logs
+
+### Get WebUI URL
+
+- Check commit comment (auto-posted)
+- Or download `deployment-info` artifact from workflow
+
+### SSH into Instance
+
+```bash
+# Get instance IP from Actions output or commit comment
+ssh -i ollama-key.pem ubuntu@<instance-ip>
+
+# View installation logs
+sudo tail -f /var/log/user-data.log
+
+# Check deployment status
+cat /home/ubuntu/deployment-status.txt
+```
+
+## 🛠️ Troubleshooting
+
+### Workflow Fails
+
+- Verify AWS credentials are correct
+- Check IAM permissions (EC2, VPC, CloudWatch)
+- Review workflow logs in Actions tab
+
+### WebUI Not Accessible
+
+- Wait full 10 minutes for installation
+- Check security group allows port 8080
+- SSH in and check logs: `sudo tail -f /var/log/user-data.log`
+
+### Need More Help?
+
+- See `GITHUB-ACTIONS-SETUP.md` for detailed setup
+- See `TROUBLESHOOTING.md` for common issues
+- Check workflow logs in Actions tab
+
+## 🔐 Security
+
+- AWS credentials stored as GitHub secrets
+- SSH access configurable via `ALLOWED_SSH_CIDR`
+- Security group allows ports: 22 (SSH), 8080 (WebUI), 11434 (Ollama)
+
+## 💰 Cost Estimate
+
+- **t3.xlarge:** ~$0.17/hour (~$120/month if running 24/7)
+- **Storage (50GB):** ~$5/month
+- **Data transfer:** Varies
+
+**Tip:** Destroy infrastructure when not in use to save costs!
 
 ## 📚 Documentation
 
-**Everything you need is in:** [COMPLETE-GUIDE.md](./COMPLETE-GUIDE.md)
+- **`README.md`** - This file (quick reference)
+- **`GITOPS-QUICKSTART.md`** - 3-minute quick start
+- **`GITHUB-ACTIONS-SETUP.md`** - Complete setup guide
+- **`TROUBLESHOOTING.md`** - Troubleshooting guide
 
-Includes:
-- ✅ Detailed setup instructions
-- ✅ Windows-specific guide
-- ✅ Troubleshooting
-- ✅ Cost optimization
-- ✅ Management commands
-- ✅ Security best practices
+## 🎉 Success Indicators
 
----
+You know it's working when:
 
-## 💰 Cost
+✅ Workflow completes in Actions tab  
+✅ Commit has auto-comment with WebUI URL  
+✅ Can download deployment-info artifact  
+✅ After 10 minutes, WebUI is accessible  
+✅ Can register user and chat with AI  
 
-| Instance | Cost/Month | Best For |
-|----------|------------|----------|
-| t3.large | $60 | Testing |
-| **t3.xlarge** ⭐ | **$120** | **Recommended** |
-| c5.2xlarge | $250 | High performance |
+## 🚀 Your GitOps Workflow
 
-**Save 70-90% with Spot Instances!**
-
----
-
-## 🛠️ Quick Commands
-
-```powershell
-# Get info
-terraform output
-
-# SSH into instance
-ssh -i ollama-key.pem ubuntu@<IP>
-
-# Destroy everything
-terraform destroy
+```
+Edit Code → Commit → Push → GitHub Actions → AWS Deploy → WebUI Ready!
 ```
 
----
+**Fully automated deployment!** 🎊
 
-## 📁 Project Files
+## 📄 License
 
-- `ec2-deploy-ollama.sh` - Main deployment script (runs on EC2)
-- `user-data.sh.tpl` - EC2 initialization script template
-- `terraform-ec2.tf` - Infrastructure configuration
-- `terraform.tfvars.example` - Configuration template
-- `deploy.ps1` - PowerShell deployment script
-- `deploy.bat` - Windows batch deployment script
-- `COMPLETE-GUIDE.md` - Full documentation
-- `.github/workflows/deploy.yml` - CI/CD automation
+MIT License - Feel free to use and modify!
+
+## 🤝 Contributing
+
+Contributions welcome! Please open an issue or PR.
 
 ---
 
-## 🎯 What You Get
-
-- ✅ **Ollama** - Run AI models locally
-- ✅ **Open-WebUI** - ChatGPT-like interface
-- ✅ **deepseek-r1:8b** - 8B parameter AI model (configurable)
-- ✅ **Complete infrastructure** - VPC, security, monitoring
-- ✅ **Automated deployment** - Git clone and install on boot
-- ✅ **Idempotent installation** - Safe to run multiple times
-- ✅ **Comprehensive logging** - Full deployment logs and status
-
----
-
-## 🔧 Configuration
-
-### Model Selection
-
-Choose your AI model in `terraform.tfvars`:
-
-```hcl
-default_model = "1"  # 1=deepseek-r1:8b (recommended)
-```
-
-**Available Models:**
-- 1 = deepseek-r1:8b (Recommended - 8B parameters, ~4.9GB)
-- 2 = deepseek-r1:14b (14B parameters, ~8.9GB)
-- 3 = deepseek-r1:32b (32B parameters, ~20GB)
-- 4 = llama3.2:3b (Lightweight - 3B parameters, ~2GB)
-- 5 = llama3.2:8b (8B parameters, ~4.7GB)
-- 6 = qwen2.5:7b (7B parameters, ~4.7GB)
-
-### Deployment Status
-
-After deployment, check status:
-
-```powershell
-# View deployment logs
-terraform output deployment_log_command
-
-# Check deployment status
-terraform output deployment_status_command
-```
-
-Status file location: `/home/ubuntu/deployment-status.txt`
-
----
-
-## 🆘 Need Help?
-
-See [COMPLETE-GUIDE.md](./COMPLETE-GUIDE.md) for:
-- Detailed instructions
-- Troubleshooting
-- Windows guide
-- Cost optimization
-- Management
-
----
-
-**Made with ❤️ for the AI community**
-
-**Time to deploy:** 10 minutes | **Difficulty:** Easy | **Cost:** From $60/month
+**Made with ❤️ for automated AI deployments**

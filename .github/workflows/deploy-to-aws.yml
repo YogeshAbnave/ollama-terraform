@@ -1,0 +1,145 @@
+name: Deploy to AWS EC2
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:  # Allow manual trigger
+
+env:
+  AWS_REGION: us-east-1
+  TF_VERSION: 1.6.0
+
+jobs:
+  deploy:
+    name: Deploy Infrastructure
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+      
+      - name: Create terraform.tfvars
+        run: |
+          cat > terraform.tfvars <<EOF
+          aws_region       = "${{ env.AWS_REGION }}"
+          instance_type    = "${{ vars.INSTANCE_TYPE || 't3.xlarge' }}"
+          storage_size     = ${{ vars.STORAGE_SIZE || 50 }}
+          key_name         = "${{ vars.KEY_NAME || 'ollama-key' }}"
+          allowed_ssh_cidr = "${{ vars.ALLOWED_SSH_CIDR || '0.0.0.0/0' }}"
+          project_name     = "${{ vars.PROJECT_NAME || 'ollama-webui' }}"
+          git_repo_url     = "${{ github.server_url }}/${{ github.repository }}.git"
+          git_branch       = "${{ github.ref_name }}"
+          default_model    = "${{ vars.DEFAULT_MODEL || '1' }}"
+          EOF
+          
+          echo "Generated terraform.tfvars:"
+          cat terraform.tfvars
+      
+      - name: Terraform Init
+        run: terraform init
+      
+      - name: Terraform Plan
+        run: terraform plan -out=tfplan
+      
+      - name: Terraform Apply
+        run: terraform apply -auto-approve tfplan
+      
+      - name: Get Outputs
+        id: outputs
+        run: |
+          echo "instance_ip=$(terraform output -raw instance_public_ip)" >> $GITHUB_OUTPUT
+          echo "webui_url=$(terraform output -raw webui_url)" >> $GITHUB_OUTPUT
+          echo "instance_id=$(terraform output -raw instance_id)" >> $GITHUB_OUTPUT
+      
+      - name: Save Deployment Info
+        run: |
+          cat > deployment-info.txt <<EOF
+          Deployment completed at: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          Instance ID: ${{ steps.outputs.outputs.instance_id }}
+          Instance IP: ${{ steps.outputs.outputs.instance_ip }}
+          WebUI URL: ${{ steps.outputs.outputs.webui_url }}
+          
+          Access your WebUI at: ${{ steps.outputs.outputs.webui_url }}
+          
+          Note: Installation takes 5-10 minutes after infrastructure is created.
+          
+          To check deployment status:
+          ssh -i ollama-key.pem ubuntu@${{ steps.outputs.outputs.instance_ip }} 'cat /home/ubuntu/deployment-status.txt'
+          
+          To view logs:
+          ssh -i ollama-key.pem ubuntu@${{ steps.outputs.outputs.instance_ip }} 'sudo tail -f /var/log/user-data.log'
+          EOF
+          
+          cat deployment-info.txt
+      
+      - name: Upload Deployment Info
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-info
+          path: deployment-info.txt
+      
+      - name: Comment on Commit
+        uses: actions/github-script@v7
+        if: github.event_name == 'push'
+        with:
+          script: |
+            const output = `#### 🚀 Deployment Successful!
+            
+            **Instance Information:**
+            - Instance ID: \`${{ steps.outputs.outputs.instance_id }}\`
+            - Instance IP: \`${{ steps.outputs.outputs.instance_ip }}\`
+            - WebUI URL: ${{ steps.outputs.outputs.webui_url }}
+            
+            **Next Steps:**
+            1. ⏳ Wait 5-10 minutes for software installation
+            2. 🌐 Access WebUI at: ${{ steps.outputs.outputs.webui_url }}
+            3. 👤 Register first user (becomes admin)
+            4. 💬 Start chatting with AI!
+            
+            **Monitoring:**
+            - Check status: Download the \`deployment-info\` artifact
+            - View logs: SSH into instance and run \`sudo tail -f /var/log/user-data.log\`
+            
+            *Deployment completed at: ${new Date().toISOString()}*`;
+            
+            github.rest.repos.createCommitComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: context.sha,
+              body: output
+            });
+      
+      - name: Deployment Summary
+        run: |
+          echo "## 🎉 Deployment Complete!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Instance Information" >> $GITHUB_STEP_SUMMARY
+          echo "- **Instance ID:** ${{ steps.outputs.outputs.instance_id }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Instance IP:** ${{ steps.outputs.outputs.instance_ip }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **WebUI URL:** ${{ steps.outputs.outputs.webui_url }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### ⏳ Installation in Progress" >> $GITHUB_STEP_SUMMARY
+          echo "The EC2 instance is now automatically installing:" >> $GITHUB_STEP_SUMMARY
+          echo "1. Git" >> $GITHUB_STEP_SUMMARY
+          echo "2. Ollama" >> $GITHUB_STEP_SUMMARY
+          echo "3. Docker" >> $GITHUB_STEP_SUMMARY
+          echo "4. AI Model (deepseek-r1:8b)" >> $GITHUB_STEP_SUMMARY
+          echo "5. Open-WebUI" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Estimated time:** 5-10 minutes" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🌐 Access Your WebUI" >> $GITHUB_STEP_SUMMARY
+          echo "After 10 minutes, visit: [${{ steps.outputs.outputs.webui_url }}](${{ steps.outputs.outputs.webui_url }})" >> $GITHUB_STEP_SUMMARY
