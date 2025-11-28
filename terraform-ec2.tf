@@ -104,7 +104,7 @@ data "aws_subnets" "available" {
 
 # Security Group
 resource "aws_security_group" "ollama_sg" {
-  name        = "${var.project_name}-security-group-${formatdate("YYYYMMDDhhmmss", timestamp())}"
+  name        = "${var.project_name}-security-group"
   description = "Security group for Ollama and Open-WebUI"
   vpc_id      = local.vpc_id
 
@@ -147,10 +147,6 @@ resource "aws_security_group" "ollama_sg" {
   tags = {
     Name    = "${var.project_name}-sg"
     Project = var.project_name
-  }
-
-  lifecycle {
-    create_before_destroy = true
   }
 }
 
