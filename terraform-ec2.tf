@@ -86,20 +86,23 @@ data "aws_ami" "ubuntu" {
   }
 }
 
-# Get any existing VPC (prefer default, but use any available)
-data "aws_vpcs" "available" {}
-
-# Use the first available VPC
-locals {
-  vpc_id = data.aws_vpcs.available.ids[0]
+# Get default VPC
+data "aws_vpc" "default" {
+  default = true
 }
 
-# Get subnets in the VPC
-data "aws_subnets" "available" {
+# Get subnets in the default VPC
+data "aws_subnets" "default" {
   filter {
     name   = "vpc-id"
-    values = [local.vpc_id]
+    values = [data.aws_vpc.default.id]
   }
+}
+
+# Use default VPC
+locals {
+  vpc_id    = data.aws_vpc.default.id
+  subnet_id = data.aws_subnets.default.ids[0]
 }
 
 # Security Group
@@ -166,7 +169,7 @@ resource "aws_instance" "ollama_server" {
   ami           = data.aws_ami.ubuntu.id
   instance_type = var.instance_type
   key_name      = var.key_name
-  subnet_id     = data.aws_subnets.available.ids[0]
+  subnet_id     = local.subnet_id
 
   vpc_security_group_ids = [aws_security_group.ollama_sg.id]
 

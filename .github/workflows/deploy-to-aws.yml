@@ -51,6 +51,17 @@ jobs:
           echo "Generated terraform.tfvars:"
           cat terraform.tfvars
       
+      - name: Ensure Default VPC Exists
+        run: |
+          # Check if default VPC exists
+          if ! aws ec2 describe-vpcs --filters "Name=isDefault,Values=true" --query 'Vpcs[0].VpcId' --output text | grep -q vpc; then
+            echo "No default VPC found. Creating one..."
+            aws ec2 create-default-vpc
+            echo "Default VPC created successfully"
+          else
+            echo "Default VPC already exists"
+          fi
+      
       - name: Terraform Init
         run: terraform init
       
