@@ -80,23 +80,6 @@ if (Test-Path $KeyFile) {
 Write-Host ""
 Write-Info "Creating terraform.tfvars..."
 
-# Get current git repository URL (if in a git repo)
-$gitRepoUrl = ""
-try {
-    $gitRemote = git config --get remote.origin.url 2>$null
-    if ($gitRemote) {
-        $gitRepoUrl = $gitRemote
-        Write-Info "Detected git repository: $gitRepoUrl"
-    } else {
-        $gitRepoUrl = "https://github.com/yourusername/ollama-deployment.git"
-        Write-Warning "Not in a git repository, using default URL"
-        Write-Warning "Update git_repo_url in terraform.tfvars with your repository URL"
-    }
-} catch {
-    $gitRepoUrl = "https://github.com/yourusername/ollama-deployment.git"
-    Write-Warning "Could not detect git repository, using default URL"
-}
-
 # Create terraform.tfvars
 $tfvarsContent = "# Auto-generated configuration`n"
 $tfvarsContent += "aws_region       = `"$Region`"`n"
@@ -105,8 +88,6 @@ $tfvarsContent += "storage_size     = $StorageSize`n"
 $tfvarsContent += "key_name         = `"$KeyName`"`n"
 $tfvarsContent += "allowed_ssh_cidr = `"$MyIP/32`"`n"
 $tfvarsContent += "project_name     = `"$ProjectName`"`n"
-$tfvarsContent += "git_repo_url     = `"$gitRepoUrl`"`n"
-$tfvarsContent += "git_branch       = `"main`"`n"
 $tfvarsContent += "default_model    = `"1`"`n"
 
 $tfvarsContent | Out-File -FilePath "terraform.tfvars" -Encoding UTF8

@@ -180,11 +180,9 @@ resource "aws_security_group" "ollama_sg" {
 
 # User data script for automatic deployment
 data "template_file" "user_data" {
-  template = file("${path.module}/user-data.sh.tpl")
+  template = file("${path.module}/user-data-simple.sh.tpl")
 
   vars = {
-    git_repo_url  = var.git_repo_url
-    git_branch    = var.git_branch
     default_model = var.default_model
   }
 }

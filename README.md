@@ -113,15 +113,21 @@ terraform destroy
 
 ## 🔧 Configuration
 
-### Git Repository Setup
+### Model Selection
 
-The deployment automatically clones your repository on EC2 boot. Update `terraform.tfvars`:
+Choose your AI model in `terraform.tfvars`:
 
 ```hcl
-git_repo_url  = "https://github.com/yourusername/your-repo.git"
-git_branch    = "main"
 default_model = "1"  # 1=deepseek-r1:8b (recommended)
 ```
+
+**Available Models:**
+- 1 = deepseek-r1:8b (Recommended - 8B parameters, ~4.9GB)
+- 2 = deepseek-r1:14b (14B parameters, ~8.9GB)
+- 3 = deepseek-r1:32b (32B parameters, ~20GB)
+- 4 = llama3.2:3b (Lightweight - 3B parameters, ~2GB)
+- 5 = llama3.2:8b (8B parameters, ~4.7GB)
+- 6 = qwen2.5:7b (7B parameters, ~4.7GB)
 
 ### Deployment Status
 

@@ -15,9 +15,5 @@ allowed_ssh_cidr = "0.0.0.0/0"          # Change to your IP (e.g., "1.2.3.4/32")
 # Project Configuration
 project_name = "ollama-webui"
 
-# Git Repository Configuration
-git_repo_url = "https://github.com/yourusername/ollama-deployment.git"  # Your git repository URL
-git_branch   = "main"                                                    # Git branch to clone
-
 # Model Configuration
-default_model = "1"  # 1=deepseek-r1:8b, 2=deepseek-r1:14b, 3=deepseek-r1:32b, 4=llama3.2:3b, 5=llama3.2:8b
+default_model = "1"  # 1=deepseek-r1:8b (recommended), 2=deepseek-r1:14b, 3=deepseek-r1:32b, 4=llama3.2:3b, 5=llama3.2:8b, 6=qwen2.5:7b
