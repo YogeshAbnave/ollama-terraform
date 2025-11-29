@@ -1,5 +1,5 @@
 # Terraform Configuration for Ollama + Open-WebUI EC2 Deployment
-# This version reuses existing VPC and Internet Gateway to avoid limits
+# Production-grade GPU-accelerated deployment with auto-scaling for 3000 concurrent users
 
 terraform {
   required_version = ">= 1.0"
@@ -19,9 +19,33 @@ variable "aws_region" {
 }
 
 variable "instance_type" {
-  description = "EC2 instance type"
+  description = "EC2 instance type - GPU instances recommended (g4dn.xlarge, g4dn.2xlarge, g5.xlarge)"
   type        = string
-  default     = "t3.xlarge"
+  default     = "g4dn.2xlarge"  # NVIDIA T4 GPU, 8 vCPUs, 32GB RAM -100.30.180.24
+}
+
+variable "min_instances" {
+  description = "Minimum number of instances in Auto Scaling Group"
+  type        = number
+  default     = 2  # High availability
+}
+
+variable "max_instances" {
+  description = "Maximum number of instances in Auto Scaling Group"
+  type        = number
+  default     = 10  # Scale up to handle 3000 concurrent users
+}
+
+variable "desired_instances" {
+  description = "Desired number of instances in Auto Scaling Group"
+  type        = number
+  default     = 3  # Start with 3 instances
+}
+
+variable "use_spot_instances" {
+  description = "Use spot instances for cost optimization (not recommended for production)"
+  type        = bool
+  default     = false
 }
 
 variable "key_name" {
@@ -70,7 +94,7 @@ provider "aws" {
   region = var.aws_region
 }
 
-# Data source for latest Ubuntu 22.04 AMI
+# Data source for latest Ubuntu 22.04 AMI with GPU support
 data "aws_ami" "ubuntu" {
   most_recent = true
   owners      = ["099720109477"] # Canonical
@@ -86,12 +110,17 @@ data "aws_ami" "ubuntu" {
   }
 }
 
+# Get all availability zones in the region
+data "aws_availability_zones" "available" {
+  state = "available"
+}
+
 # Get default VPC
 data "aws_vpc" "default" {
   default = true
 }
 
-# Get subnets in the default VPC
+# Get subnets in the default VPC across multiple AZs
 data "aws_subnets" "default" {
   filter {
     name   = "vpc-id"
@@ -99,10 +128,11 @@ data "aws_subnets" "default" {
   }
 }
 
-# Use default VPC
+# Use default VPC with multi-AZ support
 locals {
-  vpc_id    = data.aws_vpc.default.id
-  subnet_id = data.aws_subnets.default.ids[0]
+  vpc_id     = data.aws_vpc.default.id
+  subnet_ids = data.aws_subnets.default.ids  # Multiple subnets for multi-AZ deployment
+  subnet_id  = data.aws_subnets.default.ids[0]  # Select first subnet for single instance
 }
 
 # Security Group

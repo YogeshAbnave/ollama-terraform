@@ -36,7 +36,7 @@ jobs:
       
       - name: Create terraform.tfvars
         run: |
-          cat > terraform.tfvars <<EOF
+          cat > terraform/terraform.tfvars <<EOF
           aws_region       = "${{ env.AWS_REGION }}"
           instance_type    = "${{ vars.INSTANCE_TYPE || 't3.xlarge' }}"
           storage_size     = ${{ vars.STORAGE_SIZE || 50 }}
@@ -49,7 +49,7 @@ jobs:
           EOF
           
           echo "Generated terraform.tfvars:"
-          cat terraform.tfvars
+          cat terraform/terraform.tfvars
       
       - name: Ensure Default VPC Exists
         run: |
@@ -63,16 +63,20 @@ jobs:
           fi
       
       - name: Terraform Init
+        working-directory: ./terraform
         run: terraform init
       
       - name: Terraform Plan
+        working-directory: ./terraform
         run: terraform plan -out=tfplan
       
       - name: Terraform Apply
+        working-directory: ./terraform
         run: terraform apply -auto-approve tfplan
       
       - name: Get Outputs
         id: outputs
+        working-directory: ./terraform
         run: |
           echo "instance_ip=$(terraform output -raw instance_public_ip)" >> $GITHUB_OUTPUT
           echo "webui_url=$(terraform output -raw webui_url)" >> $GITHUB_OUTPUT

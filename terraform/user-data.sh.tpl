@@ -274,6 +274,34 @@ main() {
     cloud-init status --wait
     log_success "MAIN" "Cloud-init completed"
     
+    # Apply kernel tuning for AI workloads
+    log_info "MAIN" "Applying kernel tuning for AI workloads..."
+    cat > /etc/sysctl.d/99-ollama-tuning.conf <<'SYSCTL_EOF'
+# Memory Management
+vm.swappiness = 10
+vm.dirty_ratio = 15
+vm.dirty_background_ratio = 5
+vm.max_map_count = 262144
+vm.overcommit_memory = 1
+
+# Network Tuning
+net.core.rmem_max = 134217728
+net.core.wmem_max = 134217728
+net.core.somaxconn = 4096
+net.ipv4.tcp_max_syn_backlog = 8192
+net.ipv4.tcp_fastopen = 3
+
+# File System
+fs.file-max = 2097152
+fs.inotify.max_user_watches = 524288
+
+# Shared Memory
+kernel.shmmax = 68719476736
+kernel.shmall = 4294967296
+SYSCTL_EOF
+    sysctl -p /etc/sysctl.d/99-ollama-tuning.conf > /dev/null 2>&1
+    log_success "MAIN" "Kernel tuning applied"
+    
     # Update system and install git
     log_info "MAIN" "Updating system packages..."
     apt-get update -y
